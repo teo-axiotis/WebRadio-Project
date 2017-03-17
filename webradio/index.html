@@ -167,7 +167,7 @@
             var cnt=0;
             var song_title = [];
 
-            var socket = new WebSocket("ws://192.168.1.2:12345/");
+            var socket = new WebSocket("ws://localhost:12345/");
 
             /* Έναρξη μουσικής όταν πατηθεί το κουμπί play. Αλλιώς τα πακέτα
                δεν θα αναπαράγονται. ctx το αντικείμενο της createBufferSource*/
@@ -321,7 +321,7 @@
             }
 
             function init() {
-                var host = "ws://192.168.1.2:12346/chat";
+                var host = "ws://localhost:12346/chat";
                 try {
                     chatSocket = createSocket(host);
                     log('WebSocket - status ' + chatSocket.readyState);
@@ -343,7 +343,9 @@
 
             function send() {
                 var msg = document.getElementById('msg').value;
+                
                 document.getElementById('msg').value="";
+
                 try {
                     chatSocket.send(msg);
                 } catch (ex) {
