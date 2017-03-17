@@ -52,7 +52,7 @@ class Store{
 
 
 
-//Συναρτηση που τρεχει επαναλαμβανόμαινα και λαμβάνει μηνυματα απο το socket και τα στελνει στο web socket
+//Συναρτηση που τρεχει επαναλαμβανόμενα και λαμβάνει μηνυματα απο το socket και τα στελνει στο web socket
 $loop->addPeriodicTimer(0, function() use($server, $logger,$sock){
     //μεγεθος του επόμενου πακετου που θα παραληφθεί απο το socket
     $r = socket_recvfrom($sock, $num, 5, 0, $remote_ip, $remote_port);
