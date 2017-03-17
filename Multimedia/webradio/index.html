@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <title>RadioStation</title>
+
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+        <meta name="description" content="">
+        <meta name="author" content="">
+        <link rel="icon" href="../../favicon.ico">
+
+        <!-- Bootstrap core CSS -->
+        <link href="css/bootstrap.css" rel="stylesheet">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+       <!-- Custom styles for this template -->
+        <link href="style.css" rel="stylesheet">
+
+        <style>
+            html,body{font:normal 0.9em arial,helvetica;}
+            #log {overflow:auto;}
+            #msg {}
+        </style>
+
+    </head>
+
+    <body onload="init()">
+
+
+          <nav class="navbar navbar-inverse navbar-static-top ">
+          <div class="container-fluid">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand"><i class="fa fa-music logo" aria-hidden="true"></i> Radio</a>
+            </div>
+            <div class="collapse navbar-collapse" id="myNavbar">
+              <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Home</a></li>
+              </ul>
+              <ul class="nav navbar-nav navbar-right">
+                <li><a href="#"><span class="glyphicon glyphicon-user"></span> Sign Up</a></li>
+                <li><a href="#"><span class="glyphicon glyphicon-log-in"></span> Login</a></li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+
+
+        <div class="image-bg-fixed-height">
+        <div class="desc">
+              <div class="caption">
+                <button class="play_btn" onclick="establish_connection()">
+                <i id="start" class="fa fa-play" aria-hidden="true"></i>
+                </button>
+                <p id="now_playing"></p>
+                <div class="volume">
+                  <input id="myRange" type="range" value="2.5" min="0.0" max="5.0" step="0.01"/>
+                </div>
+              </div>
+
+        </div>
+
+        </div>
+
+
+
+
+        <section class="boxes">
+
+            <div class="row">
+
+              <div class="col-md-1"></div>
+
+              <div class="col-md-5">
+                <div class="box">
+                  <i class="fa fa-list" aria-hidden="true"></i>
+                  <h3>Previous Tracks</h3>
+                  <div id="playlist" class="well" style="text-align:left;">
+
+                    <table id="songs" class="table table-hover">
+                      <thead>
+                        <tr>
+                          <th>Song</th>
+                        </tr>
+                      </thead>
+                      <tbody id="p_body">
+                      </tbody>
+                    </table>
+                  </div>
+                  </div>
+              </div>
+
+              <div class="col-md-5">
+                <div class="box">
+                  <i class="fa fa-comments" aria-hidden="true"></i>
+                  <h3>Radio Chat</h3>
+                  <div class="well">
+
+                  <div id="user">
+                    <div class="form-group form-inline" style="width:100%;" >
+                        <button type="button" class="btn btn-info" id="connect">Connect</button>
+                    </div>
+                  </div>
+
+
+                  <div id="chat" style="display:none;">
+                    <div id="log" class="well w2"></div>
+                    <div class="form-group form-inline" style="width:100%;" >
+                      <label for="usr" >Message:</label>
+                      <input id="msg" type="text" class="form-control" onkeypress="onkey(event)">
+                      <button type="button" class="btn btn-info" id="connect" onclick="send()">Send</button>
+                      <button type="button" class="btn btn-info" id="connect" onclick="quit()">Disconnect</button>
+                    </div>
+                  </div>
+
+
+                  </div>
+                  </div>
+              </div>
+
+
+              <div class="col-md-1"></div>
+
+
+
+            </div>
+
+        </section>
+
+
+        <footer class="blog-footer">
+          <p style="font-weight:bold;">cs131011 | cs131027</p>
+          <p>
+            <a href="#">Back to top</a>
+          </p>
+        </footer>
+
+
+
+
+        <script>
+
+            var bytes=[];
+            var flag=1;
+            var i=0;
+            var raw;
+            var arr;
+            var buffer;
+            var buf;
+            var node=[];
+            var k=-1;
+            var stop=0;
+            var ctx = new AudioContext();
+            var volume=2.5;
+            var gainNode = ctx.createGain();
+            var cnt=0;
+            var song_title = [];
+
+            var socket = new WebSocket("ws://192.168.1.2:12345/");
+
+            /* Έναρξη μουσικής όταν πατηθεί το κουμπί play. Αλλιώς τα πακέτα
+               δεν θα αναπαράγονται. ctx το αντικείμενο της createBufferSource*/
+            function establish_connection(){
+
+              if ( $('#start').hasClass('fa fa-play') )
+              {
+                $('#start').removeClass('fa fa-play');
+                $('#start').addClass('fa fa-pause');
+                ctx.resume();
+              }
+              else{
+                $('#start').removeClass('fa fa-pause');
+                $('#start').addClass('fa fa-play');
+                ctx.suspend();
+              }
+
+              // listener gia tin entasi tou ixou apo to xristi
+              $(document).on('input', '#myRange', function() {
+                  volume = $(this).val() ;
+              });
+
+              /* Η onmessage εκτελείται κάθε φορά που έρχεται ένα μήνυμα στον client
+                 μέσω του socket που ανοίξαμε κατα το λοad της σελίδας */
+              socket.onmessage = function(msg) {
+
+                  // τα κανονικοποιημένα δεδομένα ήχου στο εύρος [-1,1]
+                  var res = msg.data;
+
+                  // Έλεγχος για τίτλο τραγουδιού
+                  if(res.substring(0, 1)=="!")
+                  {
+                      var res2 = msg.data.split("##");
+                      res=res2[1];
+                      if(res2[0].length>1)
+                      {
+                        // εμφάνιση του τρέχοντος τίτλου δίπλα απο το κουμπί play
+                        document.getElementById("now_playing").innerHTML="Now Playing:     "+res2[0].replace("!", "");
+
+                        song_title[cnt] = res2[0].replace("!", "");
+                        if(cnt==0)cnt++;
+
+                        /* καταχώρηση των τίτλων των τραγουδιών που έπαιξαν στον πίνακα
+                          previous songs. Κάθε φορά που ο τίτλος αλλάζει , ο προηγούμενος
+                          εισάγεται στη θέση 1 του πίνακα. */
+                        if(song_title[cnt-1] !== res2[0].replace("!",""))
+                        {
+
+                          var table = document.getElementById("songs");
+                          var row = table.insertRow(1);
+                          var cell1 = row.insertCell(0);
+
+                          cell1.innerHTML = song_title[cnt-1];
+                          song_title[cnt] = res2[0].replace("!","");
+
+                          cnt++;
+                        }
+
+                      }else
+                          document.getElementById("now_playing").innerHTML="";
+
+                  }
+
+                  // Parsing των JSON δεδομένων που λαμβάνουμε
+                  arr=JSON.parse(res);
+
+                  // δημιουργία ενός buffer που θα αναπαράγει τον ήχο, με δεδομένα
+                  // το πλήθος των καναλιών (mono-stereo) , το μέγεθος των δεδομένος
+                  // και τον αριθμό δειγματοληψίας του ήχου
+                  buffer = ctx.createBuffer(1, arr.length, 44100);
+                  buf    = buffer.getChannelData(0);
+
+                  //κλήση της συνάρτησης που είναι υπεύθυνη για την αναπαραγωγή
+                  play_buffersource();
+
+              };
+            }
+
+            function play_buffersource() {
+
+                // ελεγχος υποστήριξης του web audio api απο τον εκάστωτε browser
+                if (!window.AudioContext) {
+                    if (!window.webkitAudioContext) {
+                        alert("Your browser does NOT support any AudioContext!");
+                        return;
+                    }
+                    window.AudioContext = window.webkitAudioContext;
+
+                }
+
+                // καταχώρηση των δεδομένων του ήχου σε ένα νέο array
+                for (i = 0; i < arr.length; i++) {
+                   buf[i] = arr[i];
+                }
+
+                /* Στο παρακάτω block κώδικα γίνεται ο συγχρονισμός των πακέτων.
+                  Αυτό που συμβαίνει είναι πως ένα πακέτο δύναται να φτάσει στον
+                  client πρωτού έχει ολοκληρωθεί η αναπαραγωγή του προηγούμενου,
+                  δημιουργώντας έτσι απώλεια ήχου. Για να αποφύγουμε τέτοια φαινόμενα
+                  καταχωρούμε τα στιγμιότυπα του ctx σε ένα νέο πίνακα nodes. Η κάθε τιμή
+                  του nodes θα εκτελείται μόνο εάν η k-1 τιμή του έχει ολοκληρώσει την αναπαραγωγή του.
+                  Αυτό επιτυγχάνεται με την κατάλληλη χρήση της μεθόδου onended αλλα και της
+                  start.
+                  */
+                  k++;
+                  node[k] = ctx.createBufferSource(0);
+                  node[k].buffer = buffer;
+
+                  node[k].connect(gainNode);
+                  gainNode.connect(ctx.destination);
+                  gainNode.gain.value = volume;
+
+
+                  //console.log('Package '+k+" arrived:" + arr.length);
+
+                  if(k!=0)
+                  {
+
+                        node[k-1].onended = function() {
+                          //console.log('Package '+(k-1)+" finished playing:");
+                          node[k].start(0);
+                          node[k].onended = function() {k=-1;}
+                          //console.log("...now playing package "+k);
+                        }
+
+                  }
+                  else{
+                    node[0].start(0);
+                    node[0].onended = function() {k=-1;}
+                  }
+           }
+
+
+           ctx.onstatechange = function() {
+              console.log(ctx.state);
+            }
+
+           // Chat Kwdikas
+
+           var chatSocket;
+
+
+            function createSocket(host) {
+
+                if ('WebSocket' in window)
+                    return new WebSocket(host);
+                else if ('MozWebSocket' in window)
+                    return new MozWebSocket(host);
+
+                throw new Error("No web socket support in browser!");
+            }
+
+            function init() {
+                var host = "ws://192.168.1.2:12346/chat";
+                try {
+                    chatSocket = createSocket(host);
+                    log('WebSocket - status ' + chatSocket.readyState);
+                    chatSocket.onopen = function(msg) {
+                        log("Welcome - status " + this.readyState);
+                    };
+                    chatSocket.onmessage = function(msg) {
+                        log(msg.data);
+                    };
+                    chatSocket.onclose = function(msg) {
+                        log("Disconnected - status " + this.readyState);
+                    };
+                }
+                catch (ex) {
+                    log(ex);
+                }
+                document.getElementById("msg").focus();
+            }
+
+            function send() {
+                var msg = document.getElementById('msg').value;
+                document.getElementById('msg').value="";
+                try {
+                    chatSocket.send(msg);
+                } catch (ex) {
+                    log(ex);
+                }
+            }
+            function quit() {
+                log("Goodbye!");
+                chatSocket.close();
+                chatSocket = null;
+                $("#user").toggle();
+                $("#chat").toggle();
+            }
+
+            function log(msg) {
+                document.getElementById("log").innerHTML += "<br>" + msg;
+            }
+            function onkey(event) {
+                if (event.keyCode == 13) {
+                    send();
+                }
+            }
+
+
+	$(document).ready(function(){
+                $("#connect").click(function(){
+                    $("#chat").toggle();
+                    $("#user").toggle();
+
+                });
+            });
+
+
+
+</script>
+
+
+</body>
+</html>
